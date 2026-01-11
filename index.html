@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Caliber - Body Composition Tracker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Caliber</h1>
+            <p class="tagline">Measure. Track. Progress.</p>
+        </header>
+
+        <!-- Goals Section -->
+        <section class="goals-section">
+            <h2>Your Goals</h2>
+            <div class="goals-grid">
+                <div class="goal-card">
+                    <span class="goal-label">Target Weight</span>
+                    <span class="goal-value">71.3 kg</span>
+                    <span class="goal-change">-2.0 kg to go</span>
+                </div>
+                <div class="goal-card">
+                    <span class="goal-label">Fat Loss Goal</span>
+                    <span class="goal-value" id="fat-goal-display">-6.3 kg</span>
+                    <span class="goal-change" id="fat-progress">In progress</span>
+                </div>
+                <div class="goal-card">
+                    <span class="goal-label">Muscle Gain Goal</span>
+                    <span class="goal-value" id="muscle-goal-display">+4.3 kg</span>
+                    <span class="goal-change" id="muscle-progress">In progress</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Current Stats Overview -->
+        <section class="stats-section">
+            <h2>Latest Metrics</h2>
+            <div class="stats-grid" id="current-stats">
+                <div class="stat-card">
+                    <span class="stat-label">Weight</span>
+                    <span class="stat-value" id="current-weight">--</span>
+                    <span class="stat-unit">kg</span>
+                    <span class="stat-change" id="change-weight"></span>
+                    <span class="stat-context" id="context-weight"></span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Body Fat %</span>
+                    <span class="stat-value" id="current-bf">--</span>
+                    <span class="stat-unit">%</span>
+                    <span class="stat-change" id="change-bf"></span>
+                    <span class="stat-context" id="context-bf"></span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Muscle Mass</span>
+                    <span class="stat-value" id="current-smm">--</span>
+                    <span class="stat-unit">kg</span>
+                    <span class="stat-change" id="change-smm"></span>
+                    <span class="stat-context" id="context-smm"></span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Visceral Fat</span>
+                    <span class="stat-value" id="current-vf">--</span>
+                    <span class="stat-unit">level</span>
+                    <span class="stat-change" id="change-vf"></span>
+                    <span class="stat-context" id="context-vf"></span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">BMI</span>
+                    <span class="stat-value" id="current-bmi">--</span>
+                    <span class="stat-unit"></span>
+                    <span class="stat-change" id="change-bmi"></span>
+                    <span class="stat-context" id="context-bmi"></span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">InBody Score</span>
+                    <span class="stat-value" id="current-score">--</span>
+                    <span class="stat-unit">/100</span>
+                    <span class="stat-change" id="change-score"></span>
+                    <span class="stat-context" id="context-score"></span>
+                </div>
+            </div>
+            <p class="last-updated" id="last-updated">No data yet</p>
+        </section>
+
+        <!-- Charts Section -->
+        <section class="charts-section">
+            <h2>Progress Over Time</h2>
+            <div class="charts-grid">
+                <div class="chart-container small">
+                    <canvas id="weightChart"></canvas>
+                </div>
+                <div class="chart-container small">
+                    <canvas id="bodyFatChart"></canvas>
+                </div>
+                <div class="chart-container small">
+                    <canvas id="compositionChart"></canvas>
+                </div>
+                <div class="chart-container small">
+                    <canvas id="healthChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Add Entry Section -->
+        <section class="add-entry-section">
+            <h2>Quick Entry</h2>
+            <p class="entry-hint">Enter your InBody values below. Press Tab or Enter to move to next field.</p>
+
+            <!-- Quick Entry Form -->
+            <form id="entry-form" class="quick-entry-form">
+                <div class="quick-entry-grid">
+                    <div class="quick-input-group">
+                        <label for="entry-date">Date</label>
+                        <input type="date" id="entry-date" required data-quick-entry>
+                    </div>
+                    <div class="quick-input-group">
+                        <label for="entry-weight">Weight</label>
+                        <div class="input-with-unit">
+                            <input type="number" id="entry-weight" step="0.1" placeholder="73.3" required data-quick-entry data-next="entry-bf">
+                            <span class="unit">kg</span>
+                        </div>
+                    </div>
+                    <div class="quick-input-group">
+                        <label for="entry-bf">Body Fat %</label>
+                        <div class="input-with-unit">
+                            <input type="number" id="entry-bf" step="0.1" placeholder="23.1" required data-quick-entry data-next="entry-bfm">
+                            <span class="unit">%</span>
+                        </div>
+                    </div>
+                    <div class="quick-input-group">
+                        <label for="entry-bfm">Fat Mass</label>
+                        <div class="input-with-unit">
+                            <input type="number" id="entry-bfm" step="0.1" placeholder="17.0" required data-quick-entry data-next="entry-smm">
+                            <span class="unit">kg</span>
+                        </div>
+                    </div>
+                    <div class="quick-input-group">
+                        <label for="entry-smm">Muscle Mass</label>
+                        <div class="input-with-unit">
+                            <input type="number" id="entry-smm" step="0.1" placeholder="31.5" required data-quick-entry data-next="entry-vf">
+                            <span class="unit">kg</span>
+                        </div>
+                    </div>
+                    <div class="quick-input-group">
+                        <label for="entry-vf">Visceral Fat</label>
+                        <div class="input-with-unit">
+                            <input type="number" id="entry-vf" min="1" max="20" placeholder="7" required data-quick-entry data-next="entry-bmi">
+                            <span class="unit">lvl</span>
+                        </div>
+                    </div>
+                    <div class="quick-input-group">
+                        <label for="entry-bmi">BMI</label>
+                        <div class="input-with-unit">
+                            <input type="number" id="entry-bmi" step="0.1" placeholder="22.6" required data-quick-entry data-next="entry-score">
+                            <span class="unit"></span>
+                        </div>
+                    </div>
+                    <div class="quick-input-group">
+                        <label for="entry-score">Score</label>
+                        <div class="input-with-unit">
+                            <input type="number" id="entry-score" min="0" max="100" placeholder="68" required data-quick-entry data-next="entry-whr">
+                            <span class="unit">/100</span>
+                        </div>
+                    </div>
+                    <div class="quick-input-group">
+                        <label for="entry-whr">WHR</label>
+                        <div class="input-with-unit">
+                            <input type="number" id="entry-whr" step="0.01" placeholder="0.91" data-quick-entry>
+                            <span class="unit"></span>
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" class="btn-primary">Save Entry</button>
+            </form>
+
+            <!-- OCR Upload (collapsed by default) -->
+            <details class="ocr-details">
+                <summary>Or try scanning an image (experimental)</summary>
+                <div class="upload-area" id="upload-area">
+                    <input type="file" id="image-input" accept="image/*" hidden>
+                    <div class="upload-content" onclick="document.getElementById('image-input').click()">
+                        <span class="upload-icon">📷</span>
+                        <p>Upload InBody Scan Photo</p>
+                        <p class="upload-hint">OCR may not extract all values accurately</p>
+                    </div>
+                </div>
+                <div id="ocr-status" class="ocr-status" style="display: none;">
+                    <div class="spinner"></div>
+                    <span>Extracting data from image...</span>
+                </div>
+            </details>
+        </section>
+
+        <!-- History Section -->
+        <section class="history-section">
+            <h2>Entry History</h2>
+            <div class="history-table-container">
+                <table id="history-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Weight</th>
+                            <th>Body Fat %</th>
+                            <th>Muscle Mass</th>
+                            <th>Visceral Fat</th>
+                            <th>Score</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-body">
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
