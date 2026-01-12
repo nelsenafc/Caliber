@@ -1,0 +1,12 @@
+# Personal data files
+*.JPEG
+*.jpeg
+*.JPG
+*.jpg
+*.HEIC
+*.heic
+*.PNG
+*.png
+
+# macOS
+.DS_Store
