@@ -192,19 +192,25 @@ section h2 {
 }
 
 .stat-change {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-weight: 500;
-    margin-top: var(--space-sm);
+    margin-top: var(--space-md);
+    padding: 0.3rem 0.5rem;
+    background: var(--parchment);
+    border-radius: 4px;
+    display: inline-block;
     min-height: 1.2em;
     font-variant-numeric: tabular-nums;
 }
 
 .stat-change.positive {
     color: var(--sage);
+    background: rgba(125, 140, 122, 0.1);
 }
 
 .stat-change.negative {
     color: var(--brick);
+    background: rgba(154, 100, 88, 0.1);
 }
 
 .stat-change.neutral {
@@ -212,11 +218,11 @@ section h2 {
 }
 
 .stat-context {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     color: var(--stone);
-    margin-top: 0.15rem;
+    margin-top: 0.35rem;
     min-height: 1em;
-    opacity: 0.8;
+    letter-spacing: 0.03em;
 }
 
 .last-updated {
