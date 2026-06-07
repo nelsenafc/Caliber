@@ -7,8 +7,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=2">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
 <body>
@@ -93,18 +94,48 @@
         <!-- Charts Section -->
         <section class="charts-section">
             <h2>Progress Over Time</h2>
-            <div class="charts-grid">
-                <div class="chart-container small">
+
+            <!-- Hero Chart -->
+            <div class="chart-container chart-hero">
+                <div class="chart-header">
+                    <h3 class="chart-title">Weight</h3>
+                    <span class="chart-subtitle">kg over time</span>
+                </div>
+                <div class="chart-canvas-wrapper">
                     <canvas id="weightChart"></canvas>
                 </div>
-                <div class="chart-container small">
-                    <canvas id="bodyFatChart"></canvas>
+            </div>
+
+            <!-- Supporting Charts Row -->
+            <div class="charts-supporting">
+                <div class="chart-container chart-supporting">
+                    <div class="chart-header">
+                        <h3 class="chart-title">Body Fat</h3>
+                        <span class="chart-subtitle">percentage</span>
+                    </div>
+                    <div class="chart-canvas-wrapper">
+                        <canvas id="bodyFatChart"></canvas>
+                    </div>
                 </div>
-                <div class="chart-container small">
-                    <canvas id="compositionChart"></canvas>
+
+                <div class="chart-container chart-supporting">
+                    <div class="chart-header">
+                        <h3 class="chart-title">Composition</h3>
+                        <span class="chart-subtitle">fat vs. muscle mass</span>
+                    </div>
+                    <div class="chart-canvas-wrapper">
+                        <canvas id="compositionChart"></canvas>
+                    </div>
                 </div>
-                <div class="chart-container small">
-                    <canvas id="healthChart"></canvas>
+
+                <div class="chart-container chart-supporting">
+                    <div class="chart-header">
+                        <h3 class="chart-title">Health Markers</h3>
+                        <span class="chart-subtitle">visceral fat &amp; waist-hip ratio</span>
+                    </div>
+                    <div class="chart-canvas-wrapper">
+                        <canvas id="healthChart"></canvas>
+                    </div>
                 </div>
             </div>
         </section>
@@ -223,6 +254,6 @@
         </section>
     </div>
 
-    <script src="app.js"></script>
+    <script src="app.js?v=2"></script>
 </body>
 </html>

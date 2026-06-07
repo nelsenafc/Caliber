@@ -629,45 +629,199 @@ function handleDelete(date) {
     }
 }
 
-// Charts
+// ===== Charts =====
 let weightChart, bodyFatChart, compositionChart, healthChart;
 
-const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-        legend: {
-            display: true,
-            position: 'top',
-            labels: { boxWidth: 12, padding: 8, font: { size: 10 } }
-        },
-        title: {
-            display: true,
-            font: { size: 12, weight: '600' },
-            padding: { bottom: 8 }
+// Color palette with opacity variants
+const CHART_COLORS = {
+    ink: '#1a1a1a',
+    inkSubtle: 'rgba(26, 26, 26, 0.06)',
+    stone: '#6b6b6b',
+    sage: '#7d8c7a',
+    sageSubtle: 'rgba(125, 140, 122, 0.08)',
+    brick: '#9a6458',
+    brickSubtle: 'rgba(154, 100, 88, 0.08)',
+    gold: '#b8a88a',
+    terracotta: '#c4a484',
+    gridLine: 'rgba(0, 0, 0, 0.04)',
+};
+
+// Vertical crosshair plugin
+const crosshairPlugin = {
+    id: 'crosshair',
+    afterDraw(chart) {
+        if (chart.tooltip?._active?.length) {
+            const activePoint = chart.tooltip._active[0];
+            const x = activePoint.element.x;
+            const yAxis = chart.scales.y;
+            const ctx = chart.ctx;
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.setLineDash([3, 3]);
+            ctx.moveTo(x, yAxis.top);
+            ctx.lineTo(x, yAxis.bottom);
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.08)';
+            ctx.stroke();
+            ctx.restore();
         }
-    },
-    scales: {
-        x: { ticks: { font: { size: 9 } } },
-        y: { beginAtZero: false, ticks: { font: { size: 9 } } }
     }
 };
+
+Chart.register(crosshairPlugin);
+
+// Custom external tooltip
+function getOrCreateTooltip(chart) {
+    let tooltipEl = chart.canvas.parentNode.querySelector('.caliber-tooltip');
+    if (!tooltipEl) {
+        tooltipEl = document.createElement('div');
+        tooltipEl.className = 'caliber-tooltip';
+        chart.canvas.parentNode.appendChild(tooltipEl);
+    }
+    return tooltipEl;
+}
+
+function externalTooltipHandler(context) {
+    const { chart, tooltip } = context;
+    const tooltipEl = getOrCreateTooltip(chart);
+
+    if (tooltip.opacity === 0) {
+        tooltipEl.classList.remove('active');
+        return;
+    }
+
+    if (tooltip.body) {
+        const titleLines = tooltip.title || [];
+        const bodyLines = tooltip.body.map(b => b.lines);
+
+        let html = '';
+
+        if (titleLines.length > 0) {
+            html += `<div class="caliber-tooltip-date">${titleLines[0]}</div>`;
+        }
+
+        bodyLines.forEach((body, i) => {
+            const dataPoint = tooltip.dataPoints[i];
+            const dataset = dataPoint.dataset;
+            const value = dataPoint.formattedValue;
+            const label = dataset.label || '';
+            const color = dataset.borderColor;
+            const unit = dataset.unit || '';
+
+            html += `<div style="display: flex; align-items: center; gap: 8px; ${i > 0 ? 'margin-top: 6px;' : ''}">`;
+            html += `<span style="width: 8px; height: 8px; border-radius: 50%; background: ${color}; flex-shrink: 0;"></span>`;
+            html += `<span>`;
+            html += `<span class="caliber-tooltip-value">${value}</span>`;
+            html += `<span class="caliber-tooltip-unit">${unit}</span>`;
+            if (label && bodyLines.length > 1) {
+                html += `<div class="caliber-tooltip-label">${label}</div>`;
+            }
+            html += `</span>`;
+            html += `</div>`;
+        });
+
+        tooltipEl.innerHTML = html;
+    }
+
+    const { offsetLeft: positionX, offsetTop: positionY } = chart.canvas;
+    const tooltipWidth = tooltipEl.offsetWidth;
+    const canvasWidth = chart.canvas.offsetWidth;
+
+    let left = positionX + tooltip.caretX + 12;
+    if (left + tooltipWidth > positionX + canvasWidth) {
+        left = positionX + tooltip.caretX - tooltipWidth - 12;
+    }
+
+    tooltipEl.style.left = left + 'px';
+    tooltipEl.style.top = positionY + tooltip.caretY - 20 + 'px';
+    tooltipEl.classList.add('active');
+}
+
+// Shared base chart options
+function createBaseOptions(overrides = {}) {
+    return {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: {
+            duration: 800,
+            easing: 'easeOutQuart',
+        },
+        interaction: {
+            mode: 'index',
+            intersect: false,
+        },
+        hover: {
+            mode: 'index',
+            intersect: false,
+        },
+        plugins: {
+            title: { display: false },
+            legend: { display: false },
+            tooltip: {
+                enabled: false,
+                external: externalTooltipHandler,
+            },
+        },
+        scales: {
+            x: {
+                border: { display: false },
+                grid: { display: false },
+                ticks: {
+                    font: { family: 'Inter, sans-serif', size: 11, weight: '400' },
+                    color: CHART_COLORS.stone,
+                    padding: 8,
+                    maxRotation: 0,
+                },
+            },
+            y: {
+                border: { display: false },
+                beginAtZero: false,
+                grid: {
+                    color: CHART_COLORS.gridLine,
+                    lineWidth: 1,
+                    drawTicks: false,
+                },
+                ticks: {
+                    font: { family: 'Inter, sans-serif', size: 11, weight: '400' },
+                    color: CHART_COLORS.stone,
+                    padding: 12,
+                    maxTicksLimit: 6,
+                },
+            },
+        },
+        layout: {
+            padding: { top: 8, right: 8, bottom: 0, left: 0 },
+        },
+        ...overrides,
+    };
+}
+
+// Shared dataset defaults
+function createDatasetDefaults(color, options = {}) {
+    return {
+        borderColor: color,
+        backgroundColor: options.fillColor || 'transparent',
+        fill: !!options.fillColor,
+        tension: 0.4,
+        borderWidth: 1.75,
+        pointRadius: options.pointRadius ?? 0,
+        pointHoverRadius: 5,
+        pointBackgroundColor: '#ffffff',
+        pointBorderColor: color,
+        pointBorderWidth: 2,
+        pointHitRadius: 20,
+        ...options,
+    };
+}
 
 function initializeCharts() {
     const entries = getEntries();
     const labels = entries.map(e => formatChartDate(e.date));
+    const showPoints = entries.length <= 4;
+    const ptRadius = showPoints ? 4 : 0;
 
-    // Muted luxury color palette
-    const colors = {
-        ink: '#1a1a1a',
-        stone: '#6b6b6b',
-        sage: '#7d8c7a',
-        brick: '#9a6458',
-        gold: '#b8a88a',
-        terracotta: '#c4a484'
-    };
-
-    // Weight Chart
+    // --- Weight Chart (Hero) ---
     weightChart = new Chart(document.getElementById('weightChart'), {
         type: 'line',
         data: {
@@ -675,166 +829,385 @@ function initializeCharts() {
             datasets: [{
                 label: 'Weight',
                 data: entries.map(e => e.weight),
-                borderColor: colors.ink,
-                backgroundColor: 'rgba(26, 26, 26, 0.05)',
-                fill: true,
-                tension: 0.3,
-                pointRadius: 4,
-                borderWidth: 2
-            }, {
-                label: 'Target',
-                data: entries.map(() => GOALS.targetWeight),
-                borderColor: colors.gold,
-                borderDash: [5, 5],
-                pointRadius: 0,
-                fill: false,
-                borderWidth: 1.5
+                unit: 'kg',
+                ...createDatasetDefaults(CHART_COLORS.ink, {
+                    fillColor: CHART_COLORS.inkSubtle,
+                    pointRadius: ptRadius,
+                }),
             }]
         },
-        options: {
-            ...chartOptions,
+        options: createBaseOptions({
             plugins: {
-                ...chartOptions.plugins,
-                title: { ...chartOptions.plugins.title, text: 'Weight (kg)' }
-            }
-        }
+                title: { display: false },
+                legend: { display: false },
+                tooltip: {
+                    enabled: false,
+                    external: externalTooltipHandler,
+                },
+                annotation: {
+                    annotations: {
+                        targetLine: {
+                            type: 'line',
+                            yMin: GOALS.targetWeight,
+                            yMax: GOALS.targetWeight,
+                            borderColor: CHART_COLORS.gold,
+                            borderWidth: 1.5,
+                            borderDash: [6, 4],
+                            label: {
+                                display: true,
+                                content: `Goal: ${GOALS.targetWeight} kg`,
+                                position: 'end',
+                                backgroundColor: 'transparent',
+                                color: CHART_COLORS.gold,
+                                font: { family: 'Inter, sans-serif', size: 10, weight: '500' },
+                                padding: { left: 8, right: 0, top: 0, bottom: 0 },
+                            }
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    border: { display: false },
+                    grid: { display: false },
+                    ticks: {
+                        font: { family: 'Inter, sans-serif', size: 11, weight: '400' },
+                        color: CHART_COLORS.stone,
+                        padding: 8,
+                    },
+                },
+                y: {
+                    border: { display: false },
+                    beginAtZero: false,
+                    grid: { color: CHART_COLORS.gridLine, lineWidth: 1, drawTicks: false },
+                    ticks: {
+                        font: { family: 'Inter, sans-serif', size: 11, weight: '400' },
+                        color: CHART_COLORS.stone,
+                        padding: 12,
+                        maxTicksLimit: 6,
+                        callback: (value) => `${value} kg`,
+                    },
+                },
+            },
+        }),
     });
 
-    // Body Fat % Chart
+    // --- Body Fat % Chart ---
     bodyFatChart = new Chart(document.getElementById('bodyFatChart'), {
         type: 'line',
         data: {
             labels,
             datasets: [{
-                label: 'Body Fat %',
+                label: 'Body Fat',
                 data: entries.map(e => e.bodyFatPercent),
-                borderColor: colors.brick,
-                backgroundColor: 'rgba(154, 100, 88, 0.08)',
-                fill: true,
-                tension: 0.3,
-                pointRadius: 4,
-                borderWidth: 2
+                unit: '%',
+                ...createDatasetDefaults(CHART_COLORS.brick, {
+                    fillColor: CHART_COLORS.brickSubtle,
+                    pointRadius: ptRadius,
+                }),
             }]
         },
-        options: {
-            ...chartOptions,
+        options: createBaseOptions({
             plugins: {
-                ...chartOptions.plugins,
-                title: { ...chartOptions.plugins.title, text: 'Body Fat %' }
-            }
-        }
+                title: { display: false },
+                legend: { display: false },
+                tooltip: {
+                    enabled: false,
+                    external: externalTooltipHandler,
+                },
+                annotation: {
+                    annotations: {
+                        healthyZone: {
+                            type: 'box',
+                            yMin: 10,
+                            yMax: 20,
+                            backgroundColor: 'rgba(125, 140, 122, 0.05)',
+                            borderColor: 'transparent',
+                            label: {
+                                display: true,
+                                content: 'Healthy range',
+                                position: { x: 'end', y: 'start' },
+                                backgroundColor: 'transparent',
+                                color: CHART_COLORS.sage,
+                                font: { family: 'Inter, sans-serif', size: 9, weight: '400', style: 'italic' },
+                                padding: 4,
+                            }
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    border: { display: false },
+                    grid: { display: false },
+                    ticks: {
+                        font: { family: 'Inter, sans-serif', size: 11, weight: '400' },
+                        color: CHART_COLORS.stone,
+                        padding: 8,
+                    },
+                },
+                y: {
+                    border: { display: false },
+                    beginAtZero: false,
+                    grid: { color: CHART_COLORS.gridLine, lineWidth: 1, drawTicks: false },
+                    ticks: {
+                        font: { family: 'Inter, sans-serif', size: 11, weight: '400' },
+                        color: CHART_COLORS.stone,
+                        padding: 12,
+                        maxTicksLimit: 5,
+                        callback: (value) => `${value}%`,
+                    },
+                },
+            },
+        }),
     });
 
-    // Body Composition Chart (Fat Mass vs Muscle Mass)
+    // --- Composition Chart (Muscle vs Fat Mass) ---
     compositionChart = new Chart(document.getElementById('compositionChart'), {
         type: 'line',
         data: {
             labels,
-            datasets: [{
-                label: 'Fat Mass',
-                data: entries.map(e => e.bodyFatMass),
-                borderColor: colors.brick,
-                tension: 0.3,
-                pointRadius: 4,
-                borderWidth: 2
-            }, {
-                label: 'Muscle',
-                data: entries.map(e => e.muscleMass),
-                borderColor: colors.sage,
-                tension: 0.3,
-                pointRadius: 4,
-                borderWidth: 2
-            }]
+            datasets: [
+                {
+                    label: 'Muscle',
+                    data: entries.map(e => e.muscleMass),
+                    unit: 'kg',
+                    ...createDatasetDefaults(CHART_COLORS.sage, {
+                        fillColor: CHART_COLORS.sageSubtle,
+                        pointRadius: ptRadius,
+                    }),
+                    order: 1,
+                },
+                {
+                    label: 'Fat Mass',
+                    data: entries.map(e => e.bodyFatMass),
+                    unit: 'kg',
+                    ...createDatasetDefaults(CHART_COLORS.brick, {
+                        fillColor: CHART_COLORS.brickSubtle,
+                        pointRadius: ptRadius,
+                    }),
+                    order: 0,
+                },
+            ]
         },
-        options: {
-            ...chartOptions,
+        options: createBaseOptions({
             plugins: {
-                ...chartOptions.plugins,
-                title: { ...chartOptions.plugins.title, text: 'Composition (kg)' }
-            }
-        }
+                title: { display: false },
+                legend: {
+                    display: true,
+                    position: 'top',
+                    align: 'end',
+                    labels: {
+                        boxWidth: 8,
+                        boxHeight: 8,
+                        usePointStyle: true,
+                        pointStyle: 'circle',
+                        padding: 16,
+                        font: { family: 'Inter, sans-serif', size: 10, weight: '500' },
+                        color: CHART_COLORS.stone,
+                    },
+                },
+                tooltip: {
+                    enabled: false,
+                    external: externalTooltipHandler,
+                },
+            },
+            scales: {
+                x: {
+                    border: { display: false },
+                    grid: { display: false },
+                    ticks: {
+                        font: { family: 'Inter, sans-serif', size: 11, weight: '400' },
+                        color: CHART_COLORS.stone,
+                        padding: 8,
+                    },
+                },
+                y: {
+                    border: { display: false },
+                    beginAtZero: false,
+                    grid: { color: CHART_COLORS.gridLine, lineWidth: 1, drawTicks: false },
+                    ticks: {
+                        font: { family: 'Inter, sans-serif', size: 11, weight: '400' },
+                        color: CHART_COLORS.stone,
+                        padding: 12,
+                        maxTicksLimit: 5,
+                        callback: (value) => `${value} kg`,
+                    },
+                },
+            },
+        }),
     });
 
-    // Health Metrics Chart (Visceral Fat & WHR)
+    // --- Health Metrics Chart (Visceral Fat + WHR) ---
     healthChart = new Chart(document.getElementById('healthChart'), {
         type: 'line',
         data: {
             labels,
-            datasets: [{
-                label: 'Visceral Fat',
-                data: entries.map(e => e.visceralFat),
-                borderColor: colors.stone,
-                tension: 0.3,
-                pointRadius: 4,
-                yAxisID: 'y',
-                borderWidth: 2
-            }, {
-                label: 'WHR',
-                data: entries.map(e => e.waistHipRatio),
-                borderColor: colors.terracotta,
-                tension: 0.3,
-                pointRadius: 4,
-                yAxisID: 'y1',
-                borderWidth: 2
-            }]
+            datasets: [
+                {
+                    label: 'Visceral Fat',
+                    data: entries.map(e => e.visceralFat),
+                    unit: 'level',
+                    ...createDatasetDefaults(CHART_COLORS.stone, {
+                        pointRadius: ptRadius,
+                    }),
+                    yAxisID: 'y',
+                },
+                {
+                    label: 'WHR',
+                    data: entries.map(e => e.waistHipRatio),
+                    unit: '',
+                    ...createDatasetDefaults(CHART_COLORS.terracotta, {
+                        pointRadius: ptRadius,
+                        borderDash: [4, 3],
+                    }),
+                    yAxisID: 'y1',
+                }
+            ]
         },
-        options: {
-            ...chartOptions,
+        options: createBaseOptions({
             plugins: {
-                ...chartOptions.plugins,
-                title: { ...chartOptions.plugins.title, text: 'Health Metrics' }
+                title: { display: false },
+                legend: {
+                    display: true,
+                    position: 'top',
+                    align: 'end',
+                    labels: {
+                        boxWidth: 8,
+                        boxHeight: 8,
+                        usePointStyle: true,
+                        pointStyle: 'circle',
+                        padding: 16,
+                        font: { family: 'Inter, sans-serif', size: 10, weight: '500' },
+                        color: CHART_COLORS.stone,
+                    },
+                },
+                tooltip: {
+                    enabled: false,
+                    external: externalTooltipHandler,
+                },
+                annotation: {
+                    annotations: {
+                        vfHealthy: {
+                            type: 'box',
+                            yMin: 1,
+                            yMax: 9,
+                            yScaleID: 'y',
+                            backgroundColor: 'rgba(125, 140, 122, 0.04)',
+                            borderColor: 'transparent',
+                        },
+                        whrThreshold: {
+                            type: 'line',
+                            yMin: 0.90,
+                            yMax: 0.90,
+                            yScaleID: 'y1',
+                            borderColor: 'rgba(154, 100, 88, 0.2)',
+                            borderWidth: 1,
+                            borderDash: [3, 3],
+                            label: {
+                                display: true,
+                                content: 'WHR threshold',
+                                position: 'start',
+                                backgroundColor: 'transparent',
+                                color: 'rgba(154, 100, 88, 0.4)',
+                                font: { family: 'Inter, sans-serif', size: 9, weight: '400' },
+                            }
+                        }
+                    }
+                }
             },
             scales: {
-                x: { ticks: { font: { size: 9 } } },
+                x: {
+                    border: { display: false },
+                    grid: { display: false },
+                    ticks: {
+                        font: { family: 'Inter, sans-serif', size: 11, weight: '400' },
+                        color: CHART_COLORS.stone,
+                        padding: 8,
+                    },
+                },
                 y: {
                     type: 'linear',
                     position: 'left',
+                    border: { display: false },
                     beginAtZero: false,
-                    ticks: { font: { size: 9 } },
-                    title: { display: true, text: 'VF', font: { size: 9 } }
+                    grid: { color: CHART_COLORS.gridLine, lineWidth: 1, drawTicks: false },
+                    ticks: {
+                        font: { family: 'Inter, sans-serif', size: 10, weight: '400' },
+                        color: CHART_COLORS.stone,
+                        padding: 8,
+                        maxTicksLimit: 5,
+                        stepSize: 1,
+                    },
+                    title: {
+                        display: true,
+                        text: 'Visceral Fat',
+                        font: { family: 'Inter, sans-serif', size: 9, weight: '500' },
+                        color: CHART_COLORS.stone,
+                        padding: { bottom: 4 },
+                    },
                 },
                 y1: {
                     type: 'linear',
                     position: 'right',
+                    border: { display: false },
                     beginAtZero: false,
-                    ticks: { font: { size: 9 } },
-                    title: { display: true, text: 'WHR', font: { size: 9 } },
-                    grid: { drawOnChartArea: false }
-                }
-            }
-        }
+                    grid: { drawOnChartArea: false },
+                    ticks: {
+                        font: { family: 'Inter, sans-serif', size: 10, weight: '400' },
+                        color: CHART_COLORS.terracotta,
+                        padding: 8,
+                        maxTicksLimit: 5,
+                    },
+                    title: {
+                        display: true,
+                        text: 'WHR',
+                        font: { family: 'Inter, sans-serif', size: 9, weight: '500' },
+                        color: CHART_COLORS.terracotta,
+                        padding: { bottom: 4 },
+                    },
+                },
+            },
+        }),
     });
 }
 
 function updateCharts() {
     const entries = getEntries();
     const labels = entries.map(e => formatChartDate(e.date));
+    const showPoints = entries.length <= 4;
+    const ptRadius = showPoints ? 4 : 0;
 
-    // Update Weight Chart
+    // Weight Chart
     weightChart.data.labels = labels;
     weightChart.data.datasets[0].data = entries.map(e => e.weight);
-    weightChart.data.datasets[1].data = entries.map(() => GOALS.targetWeight);
+    weightChart.data.datasets[0].pointRadius = ptRadius;
     weightChart.update();
 
-    // Update Body Fat % Chart
+    // Body Fat Chart
     bodyFatChart.data.labels = labels;
     bodyFatChart.data.datasets[0].data = entries.map(e => e.bodyFatPercent);
+    bodyFatChart.data.datasets[0].pointRadius = ptRadius;
     bodyFatChart.update();
 
-    // Update Composition Chart
+    // Composition Chart
     compositionChart.data.labels = labels;
-    compositionChart.data.datasets[0].data = entries.map(e => e.bodyFatMass);
-    compositionChart.data.datasets[1].data = entries.map(e => e.muscleMass);
+    compositionChart.data.datasets[0].data = entries.map(e => e.muscleMass);
+    compositionChart.data.datasets[1].data = entries.map(e => e.bodyFatMass);
+    compositionChart.data.datasets[0].pointRadius = ptRadius;
+    compositionChart.data.datasets[1].pointRadius = ptRadius;
     compositionChart.update();
 
-    // Update Health Chart
+    // Health Chart
     healthChart.data.labels = labels;
     healthChart.data.datasets[0].data = entries.map(e => e.visceralFat);
     healthChart.data.datasets[1].data = entries.map(e => e.waistHipRatio);
+    healthChart.data.datasets[0].pointRadius = ptRadius;
+    healthChart.data.datasets[1].pointRadius = ptRadius;
     healthChart.update();
 }
 
 function formatChartDate(dateStr) {
     const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
 }
